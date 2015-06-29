@@ -17,9 +17,13 @@ read <- function(directory) {
   # generate list of names and file paths for the sudirectory given
   file.paths = list.files(directory, full.names=TRUE, pattern=".txt")
   file.names = list.files(directory, pattern=".txt")
+  
+  # This cleans up the file names but makes the function ungeneralised 
   file.names = sub("-", "", substr(file.names, 11, nchar(file.names) - 4 ))
-  remove names of the leaf directory from name of data.frame
-  file.names = matrix( unlist( strsplit( file.names, unlist(strsplit(directory, "/"))[10]  )), ncol=2, byrow=TRUE)[,2]
+  
+  # remove names of the leaf directory from name of data.frame
+  directory.name = tail(unlist(strsplit(directory, "/")), 1)
+  file.names <- sub(directory.name, "", file.names)
   
   # loop through file paths and read them into a list of data frames
   temp = list()
@@ -29,11 +33,50 @@ read <- function(directory) {
     
   # returns a list of data frames (names have been streamlined)
   names(temp) <- file.names
-  
-
-  
   return(temp)  
 }
+
+# This function reads data files recursively and extracts them to a nested list
+# -----------------------------------------------------------------------------
+# The only argument is a root directory
+
+read.list <- function(directory.list, index = NULL)
+{
+  if (is.null(index))
+  {
+    index <- list()
+  }
+  
+  # for each readable file add an item to the list
+  files.list = list.files(directory.list, pattern=".txt")
+  if (length(files.list) > 0 ) {
+    temp <- read(directory.list)
+    index <- temp
+    #index <- append(index, temp)
+  }
+  
+  # for each directory add a list to the list and recurse 
+  root.directories = list.dirs(directory.list, recursive=FALSE)
+  if (length(root.directories) > 0) 
+  {
+    for ( j in seq_along (root.directories) ) {
+      # recursively read the subirectory into a list
+      sublist = read.list(root.directories[j], index[ length(files.list) + j])
+      index[ length(files.list) + j] = list(sublist)
+    }
+    
+    # Extract direcectory names, clean them and add to index
+    names = unlist(strsplit(root.directories, "/"))
+    names = tail(matrix(names, ncol=length(root.directories)),1)
+    names = append(names(index), names, after=length(files.list))[1:length(index)]
+    names = tolower(sub( "-", "",names))
+    names(index) <- names
+    
+  }
+  return(index)
+}
+
+
 # This function calculates additional variables
 # ------------------------------------------------------------------------------------------------
 # Takes a list of data.frames of the raw format as arguement
@@ -62,3 +105,7 @@ instantaneous.calculations <- function(list) {
   names(return.list) = names(list)
   return(return.list)
 }
+
+
+
+

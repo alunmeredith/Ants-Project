@@ -1,7 +1,3 @@
-# Install relevant packages
-# -------------------------
-
-
 # Programatically read and save data files
 # -------------------------------------------------------------------------------------
 # takes a full directory path as an arguement
@@ -88,8 +84,6 @@ read.list <- function(directory.list, index = NULL)
 #     event -- numbers sequentially moving and stationary events
 # ------------------------------------------------------------------------------------------------
 
-
-
 instantaneous.calculations <- function(list) 
 {
   
@@ -140,6 +134,12 @@ instantaneous.calculations <- function(list)
 
 stitch <- function(x)
 {
+  # load (and install) dplyr 
+  if (!require("dplyr")) {
+    install.packages("dplyr")
+  }
+  require("dplyr")
+  
   bound <- x[[1]]
   for (i in seq(2, length(x)))
   {

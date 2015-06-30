@@ -27,8 +27,14 @@ for (j in seq_along(raw))
 stitched <- instantaneous
 for (j in seq_along(stitched)){
   for (i in seq_along(stitched[[j]])) {
-    stitched[[j]][[i]] <- stitch(stitched[[j]][[i]])  
+    # stitches the ant data frames together and groups them by ant/event
+    stitched[[j]][[i]] <- group_by(  stitch(stitched[[j]][[i]])  , ant, event)  
   }
 }
 
-
+# --------------------------------------
+# Analysing moving and stationary events 
+# --------------------------------------
+test <- stitched[[1]][[1]]
+events <- group_by(test, ant, event, moving) %>%
+  summarise(pathlength = sum(dz), directdistance = max(distance) - min(distance), av.speed = mean(velocity), duration =  sum(dt))

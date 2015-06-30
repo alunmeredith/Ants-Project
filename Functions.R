@@ -1,9 +1,5 @@
 # Install relevant packages
 # -------------------------
-if (!require("dplyr")) {
-  install.packages("dplyr")
-}
-require("dplyr")
 
 
 # Programatically read and save data files
@@ -86,26 +82,69 @@ read.list <- function(directory.list, index = NULL)
 #     velocity -- dz/dt (millimetres per second)
 #     direction -- angle between the direction of travel and the top face of the nest (in radians)
 #     distance -- cumulative distance travelled since recording began
+#     moving -- logical, is distance > 0
+#     eventboundary -- 1 if first measurement moving after stationary, -1 if first measurement of stationary after moving, else 9
+#     acceleration -- current acceleration dv/dt (value set to 0 for first two measurements which cannot be calculated)
+#     event -- numbers sequentially moving and stationary events
 # ------------------------------------------------------------------------------------------------
-instantaneous.calculations <- function(list) {
+
+
+
+instantaneous.calculations <- function(list) 
+{
+  
+  # load (and install) dplyr 
+  if (!require("dplyr")) {
+    install.packages("dplyr")
+  }
+  require("dplyr")
+  
   return.list = list()
   for(i in seq_along(list)){
-    data = list[[i]]
+    data = as.tbl(list[[i]])
     
     # calculates changes in t, x, y from previous measurement
     data.dt = data[2:nrow(data),] - data[1:(nrow(data)-1),]
-    data.dt = rbind(c(0, 0, 0), data.dt) # 0s instead of NAs chosen because ants spend large amounts of time stationary so its not going to affect the results
+    data.dt = rbind(c(NA, NA, NA), data.dt)
     names(data.dt) <- c("dt", "dx", "dy")
     data = cbind(data, data.dt)
     
     # calculates instantaneous distance and velocity direction measurements and total distance. 
-    data = mutate(data, dz = sqrt(dx^2 + dy^2), velocity = abs(dz/dt), direction = atan( dx/dy ), distance = cumsum(dz))
+    data = mutate(data, dz = sqrt(dx^2 + dy^2), velocity = dz/dt, direction = atan( dx/dy ), distance = cumsum(ifelse(is.na(dz), 0, dz)) + dz*0, moving = velocity > 0)
+    
+    # calculates event boundaries (1 if start moving, -1 if stopping) and change in velocity
+    accel.event = data[2:nrow(data), c("velocity", "moving")] - data[1:( nrow(data) - 1 ), c("velocity", "moving")]
+    accel.event = rbind(c(NA,NA), accel.event)
+    names(accel.event) = c("dv" , "eventboundary")
+    data <- bind_cols(data, accel.event)
+    
+    # calculates acceleration and event id (removes change in velocity)
+    data <- 
+      mutate(data, acceleration=dv/dt,
+             ant = gsub('[a-zA-Z]', "", names(list[i])), 
+             event=cumsum(ifelse(is.na(abs(eventboundary)), 0, abs(eventboundary))) + abs(eventboundary*0)) %>% 
+      select(-dv)
+    # Coerce the ant number to be a numeric variable (cannot coerce to factor at this point)
+    data$ant <- as.numeric(data$ant)
+    # return the altered data frame to the list
     return.list[[i]] = data
   }
+  # name and return the list
   names(return.list) = names(list)
   return(return.list)
 }
 
+# ------------------------------------------------------------------------------------ 
+# This function takes a list of data frames as an arguement and combines them together
+#
 
-
+stitch <- function(x)
+{
+  bound <- x[[1]]
+  for (i in seq(2, length(x)))
+  {
+    bound <- bind_rows(bound, x[[i]])
+  }
+  return(bound)
+}
 
